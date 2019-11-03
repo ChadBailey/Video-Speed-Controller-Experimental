@@ -446,6 +446,37 @@
       });
   }
 
+function getShadowRoots(shadowRootElement) {
+  shadowRootElements=[];
+  contexts = [];
+  if (typeof(shadowRootElement) === "undefined") {
+    contexts.push(document);
+  } else if (shadowRootElement.shadowRoot && shadowRootElement.shadowRoot.children) {
+    for (let i = 0; i < shadowRootElement.shadowRoot.children.length; i++) {
+      contexts.push(shadowRootElement.shadowRoot.children[i]);
+    }
+  }
+  for (let context of contexts) {
+    if (context.shadowRoot) {
+      shadowRootElements.push(context);
+      // Recursive check for sub-shadowRoots
+      if (context.shadowRoot.children) {
+        shadowRootElements = shadowRootElements.concat(getShadowRoots(context.shadowRoot,shadowRootElements))
+      }
+    }
+    for (let el of context.getElementsByTagName('*')) {
+      if (el.shadowRoot) {
+        shadowRootElements.push(el);
+        // Recursive check for sub-shadowRoots
+        if (el.shadowRoot.children) {
+          shadowRootElements = shadowRootElements.concat(getShadowRoots(el))
+        }
+      }
+    }
+  }
+  return shadowRootElements;
+}
+
   function runAction(action, document, value, e) {
     if (tc.settings.audioBoolean) {
       var mediaTags = document.querySelectorAll('video,audio');
