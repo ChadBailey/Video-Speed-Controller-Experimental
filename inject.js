@@ -322,6 +322,62 @@
       return true;
     }
   }
+
+  function getShadowRoots(shadowRootElement) {
+    shadowRootElements=[];
+    contexts = [];
+    if (typeof(shadowRootElement) === "undefined") {
+      contexts.push(document);
+    } else if (shadowRootElement.shadowRoot && shadowRootElement.shadowRoot.children) {
+      for (let i = 0; i < shadowRootElement.shadowRoot.children.length; i++) {
+        contexts.push(shadowRootElement.shadowRoot.children[i]);
+      }
+    }
+    for (let context of contexts) {
+      if (context.shadowRoot) {
+        shadowRootElements.push(context);
+        // Recursive check for sub-shadowRoots
+        if (context.shadowRoot.children) {
+          shadowRootElements = shadowRootElements.concat(getShadowRoots(context.shadowRoot,shadowRootElements));
+        }
+      }
+      for (let el of context.getElementsByTagName('*')) {
+        if (el.shadowRoot) {
+          shadowRootElements.push(el);
+          // Recursive check for sub-shadowRoots
+          if (el.shadowRoot.children) {
+            shadowRootElements = shadowRootElements.concat(getShadowRoots(el));
+          }
+        }
+      }
+    }
+    return shadowRootElements;
+  }
+  
+  function getAudioVideoElements() {
+    var mediaTags = [];
+    if (tc.settings.audioBoolean) {
+      if (document.querySelectorAll('video,audio').length > 0) {
+        mediaTags.push(document.querySelectorAll('video,audio'));
+      }
+      for (let sr of getShadowRoots()) {
+        if (sr.shadowRoot.querySelector('video,audio')) {
+          mediaTags = mediaTags.concat(sr.shadowRoot.querySelector('video,audio'));
+        }
+      }
+    } else {
+      if (document.querySelectorAll('video').length > 0) {
+        mediaTags.push(document.querySelectorAll('video'));
+      }
+      for (let sr of getShadowRoots()) {
+        if (sr.shadowRoot.querySelector('video')) {
+          mediaTags = mediaTags.concat(sr.shadowRoot.querySelector('video'));
+        }
+      }
+    }
+    return mediaTags;
+  }
+
   function initializeNow(document) {
       if (!tc.settings.enabled) return;
       // enforce init-once due to redundant callers
@@ -428,11 +484,7 @@
       });
       observer.observe(document, { childList: true, subtree: true });
 
-      if (tc.settings.audioBoolean) {
-        var mediaTags = document.querySelectorAll('video,audio');
-      } else {
-        var mediaTags = document.querySelectorAll('video');
-      }
+      mediaTags = getAudioVideoElements()
 	  
       forEach.call(mediaTags, function(video) {
         video.vsc = new tc.videoController(video);
@@ -446,44 +498,8 @@
       });
   }
 
-function getShadowRoots(shadowRootElement) {
-  shadowRootElements=[];
-  contexts = [];
-  if (typeof(shadowRootElement) === "undefined") {
-    contexts.push(document);
-  } else if (shadowRootElement.shadowRoot && shadowRootElement.shadowRoot.children) {
-    for (let i = 0; i < shadowRootElement.shadowRoot.children.length; i++) {
-      contexts.push(shadowRootElement.shadowRoot.children[i]);
-    }
-  }
-  for (let context of contexts) {
-    if (context.shadowRoot) {
-      shadowRootElements.push(context);
-      // Recursive check for sub-shadowRoots
-      if (context.shadowRoot.children) {
-        shadowRootElements = shadowRootElements.concat(getShadowRoots(context.shadowRoot,shadowRootElements))
-      }
-    }
-    for (let el of context.getElementsByTagName('*')) {
-      if (el.shadowRoot) {
-        shadowRootElements.push(el);
-        // Recursive check for sub-shadowRoots
-        if (el.shadowRoot.children) {
-          shadowRootElements = shadowRootElements.concat(getShadowRoots(el))
-        }
-      }
-    }
-  }
-  return shadowRootElements;
-}
-
   function runAction(action, document, value, e) {
-    if (tc.settings.audioBoolean) {
-      var mediaTags = document.querySelectorAll('video,audio');
-    } else {
-      var mediaTags = document.querySelectorAll('video');
-    }
-
+    var mediaTags = getAudioVideoElements()
     mediaTags.forEach = Array.prototype.forEach;
 
     // Get the controller that was used if called from a button press event e
