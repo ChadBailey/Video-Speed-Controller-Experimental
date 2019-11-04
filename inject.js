@@ -328,7 +328,9 @@
     contexts = [];
     if (typeof(shadowRootElement) === "undefined") {
       contexts.push(document);
-    } else if (shadowRootElement.shadowRoot && shadowRootElement.shadowRoot.children) {
+    } else if (
+      shadowRootElement.shadowRoot && shadowRootElement.shadowRoot.children
+    ) {
       for (let i = 0; i < shadowRootElement.shadowRoot.children.length; i++) {
         contexts.push(shadowRootElement.shadowRoot.children[i]);
       }
@@ -338,7 +340,9 @@
         shadowRootElements.push(context);
         // Recursive check for sub-shadowRoots
         if (context.shadowRoot.children) {
-          shadowRootElements = shadowRootElements.concat(getShadowRoots(context.shadowRoot,shadowRootElements));
+          shadowRootElements = shadowRootElements.concat(
+            getShadowRoots(context.shadowRoot,shadowRootElements)
+          );
         }
       }
       for (let el of context.getElementsByTagName('*')) {
@@ -353,26 +357,27 @@
     }
     return shadowRootElements;
   }
-  
+
   function getAudioVideoElements() {
     var mediaTags = [];
-    if (tc.settings.audioBoolean) {
-      if (document.querySelectorAll('video,audio').length > 0) {
-        mediaTags.push(document.querySelectorAll('video,audio'));
-      }
-      for (let sr of getShadowRoots()) {
-        if (sr.shadowRoot.querySelector('video,audio')) {
-          mediaTags = mediaTags.concat(sr.shadowRoot.querySelector('video,audio'));
-        }
-      }
-    } else {
-      if (document.querySelectorAll('video').length > 0) {
-        mediaTags.push(document.querySelectorAll('video'));
-      }
-      for (let sr of getShadowRoots()) {
-        if (sr.shadowRoot.querySelector('video')) {
-          mediaTags = mediaTags.concat(sr.shadowRoot.querySelector('video'));
-        }
+    var shadowRoots = getShadowRoots();
+    var bodyAVElements = document.querySelectorAll(
+      tc.settings.audioBoolean ? 'video,audio' : 'video'
+    );
+    //TODO: Properly concat both nodeLists or refactor calling routine to
+    // allow the use of an array. i.e. Array.from(querySelectorAll('video'))
+    // alternately, could just pass an array of nodelists then iterate over
+    // them in the calling routine
+
+    if (bodyAVElements.length > 0) {
+      mediaTags = bodyAVElements;
+    }
+    for (let shadowRootAVElement of shadowRoots) {
+      shadowRootAVElements = shadowRootAVElement.shadowRoot.querySelectorAll(
+        tc.settings.audioBoolean ? 'video,audio' : 'video'
+      );
+      if (shadowRootAVElements.length > 0) {
+        mediaTags = shadowRootAVElements;
       }
     }
     return mediaTags;
