@@ -386,339 +386,330 @@
   }
 
   function initializeNow(document) {
-      if (!tc.settings.enabled) return;
-      // enforce init-once due to redundant callers
-      if (!document.body || document.body.classList.contains('vsc-initialized')) {
-        return;
-      }
-      document.body.classList.add('vsc-initialized');
+    if (!tc.settings.enabled) return;
+    // enforce init-once due to redundant callers
+    if (!document.body || document.body.classList.contains('vsc-initialized')) {
+      return;
+    }
+    document.body.classList.add('vsc-initialized');
 
-      if (document === window.document) {
-        defineVideoController();
-      } else {
-        var link = document.createElement('link');
-        link.href = chrome.runtime.getURL('inject.css');
-        link.type = 'text/css';
-        link.rel = 'stylesheet';
-        document.head.appendChild(link);
-      }
-      var docs = Array(document)
-      try {
-        if (inIframe())
-          docs.push(window.top.document);
-      } catch (e) {
-      }
+    if (document === window.document) {
+      defineVideoController();
+    } else {
+      var link = document.createElement('link');
+      link.href = chrome.runtime.getURL('inject.css');
+      link.type = 'text/css';
+      link.rel = 'stylesheet';
+      document.head.appendChild(link);
+    }
+    var docs = Array(document)
+    try {
+      if (inIframe())
+        docs.push(window.top.document);
+    } catch (e) {
+    }
 
-      docs.forEach(function(doc) {
-        doc.addEventListener('keydown', function(event) {
-          var keyCode = event.keyCode;
+    docs.forEach(function(doc) {
+      doc.addEventListener('keydown', function(event) {
+        var keyCode = event.keyCode;
 
-          // Ignore if following modifier is active.
-          if (!event.getModifierState
-              || event.getModifierState("Alt")
-              || event.getModifierState("Control")
-              || event.getModifierState("Fn")
-              || event.getModifierState("Meta")
-              || event.getModifierState("Hyper")
-              || event.getModifierState("OS")) {
-            return;
-          }
-
-          // Ignore keydown event if typing in an input box
-          if (document.activeElement.nodeName === 'INPUT'
-              || document.activeElement.nodeName === 'TEXTAREA'
-              || document.activeElement.isContentEditable) {
-            return false;
-          }
-
-          // Ignore keydown event if typing in a page without vsc
-          if (!querySelectorAllRecursive(".vsc-controller")) {
-            return false;
-          }
-
-        var item = tc.settings.keyBindings.find(item => item.key === keyCode);
-        if (item) {
-          runAction(item.action, document, item.value);
-          if (item.force === "true") {// disable websites key bindings
-            event.preventDefault();
-            event.stopPropagation();
-          }
-        }
-
-          return false;
-        }, true);
-      });
-
-
-      function checkForVideo(node, parent, added) {
-        // Only proceed with supposed removal if node is missing from DOM
-        if (!added && document.body.contains(node)) {
+        // Ignore if following modifier is active.
+        if (!event.getModifierState
+            || event.getModifierState("Alt")
+            || event.getModifierState("Control")
+            || event.getModifierState("Fn")
+            || event.getModifierState("Meta")
+            || event.getModifierState("Hyper")
+            || event.getModifierState("OS")) {
           return;
         }
-        if (node.nodeName === 'VIDEO' || (node.nodeName === 'AUDIO' && tc.settings.audioBoolean)) {
-          if (added) {
-            node.vsc = new tc.videoController(node, parent);
-          } else {
-            let id = node.dataset['vscid'];
-            if (id) {
-              node.vsc.remove();
-            }
-          }
-        } else if (node.children != undefined) {
-          for (var i = 0; i < node.children.length; i++) {
-            const child = node.children[i];
-            checkForVideo(child, child.parentNode || parent, added);
-          }
+
+        // Ignore keydown event if typing in an input box
+        if (document.activeElement.nodeName === 'INPUT'
+            || document.activeElement.nodeName === 'TEXTAREA'
+            || document.activeElement.isContentEditable) {
+          return false;
+        }
+
+        // Ignore keydown event if typing in a page without vsc
+        if (!querySelectorAllRecursive(".vsc-controller")) {
+          return false;
+        }
+
+      var item = tc.settings.keyBindings.find(item => item.key === keyCode);
+      if (item) {
+        runAction(item.action, document, item.value);
+        if (item.force === "true") {// disable websites key bindings
+          event.preventDefault();
+          event.stopPropagation();
         }
       }
 
-      function mutationCallback(mutations) {
-        // Process the DOM nodes lazily
-        requestIdleCallback(_ => {
-          mutations.forEach(function(mutation) {
-            forEach.call(mutation.addedNodes, function(node) {
-              if (typeof node === "function")
-                return;
-              checkForVideo(node, node.parentNode || mutation.target, true);
-            });
-            forEach.call(mutation.removedNodes, function(node) {
-              if (typeof node === "function")
-                return;
-              checkForVideo(node, node.parentNode || mutation.target, false);
-            });
+        return false;
+      }, true);
+    });
+
+
+    function checkForVideo(node, parent, added) {
+      // Only proceed with supposed removal if node is missing from DOM
+      if (!added && document.body.contains(node)) {
+        return;
+      }
+      if (node.nodeName === 'VIDEO' || (node.nodeName === 'AUDIO' && tc.settings.audioBoolean)) {
+        if (added) {
+          node.vsc = new tc.videoController(node, parent);
+        } else {
+          let id = node.dataset['vscid'];
+          if (id) {
+            node.vsc.remove();
+          }
+        }
+      } else if (node.children != undefined) {
+        for (var i = 0; i < node.children.length; i++) {
+          const child = node.children[i];
+          checkForVideo(child, child.parentNode || parent, added);
+        }
+      }
+    }
+
+    function mutationCallback(mutations) {
+      // Process the DOM nodes lazily
+      requestIdleCallback(_ => {
+        mutations.forEach(function(mutation) {
+          forEach.call(mutation.addedNodes, function(node) {
+            if (typeof node === "function")
+              return;
+            checkForVideo(node, node.parentNode || mutation.target, true);
           });
-        }, {timeout: 1000});
-      }
-      var observer = new MutationObserver(mutationCallback);
-      observer.observe(document, { childList: true, subtree: true });
-
-      mediaTags = getAudioVideoElements()
-	  
-      forEach.call(mediaTags, function(video) {
-        video.vsc = new tc.videoController(video);
-      });
-
-      var frameTags = document.getElementsByTagName('iframe');
-      forEach.call(frameTags, function(frame) {
-        // Ignore frames we don't have permission to access (different origin).
-        try { var childDocument = frame.contentDocument } catch (e) { return }
-        initializeWhenReady(childDocument);
-      });
-
-      // start of ally.js/src/observe/shadow-mutations.js
-      // import nodeArray from '../util/node-array';
-        // input may be undefined, selector-tring, Node, NodeList, HTMLCollection, array of Nodes
-        // yes, to some extent this is a bad replica of jQuery's constructor function
-        function nodeArray(input) {
-          if (!input) {
-            return [];
-          }
-
-          if (Array.isArray(input)) {
-            return input;
-          }
-
-          // instanceof Node - does not work with iframes
-          if (input.nodeType !== undefined) {
-            return [input];
-          }
-
-          if (typeof input === 'string') {
-            input = document.querySelectorAll(input);
-          }
-
-          if (input.length !== undefined) {
-            return [].slice.call(input, 0);
-          }
-
-          throw new TypeError('unexpected input ' + String(input));
-        }
-      //import queryShadowHosts from '../query/shadow-hosts';
-        //import contextToElement from '../util/context-to-element';
-          //import nodeArray from '../util/node-array'; already imported
-
-        function contextToElement({
-          context,
-          label = 'context-to-element',
-          resolveDocument,
-          defaultToDocument,
-        }) {
-          let element = nodeArray(context)[0];
-
-          if (resolveDocument && element && element.nodeType === Node.DOCUMENT_NODE) {
-            element = element.documentElement;
-          }
-
-          if (!element && defaultToDocument) {
-            return document.documentElement;
-          }
-
-          if (!element) {
-            throw new TypeError(label + ' requires valid options.context');
-          }
-
-          if (element.nodeType !== Node.ELEMENT_NODE && element.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
-            throw new TypeError(label + ' requires options.context to be an Element');
-          }
-
-          return element;
-        }
-          //import getDocument from '../util/get-document';
-          function getDocument(node) {
-          if (!node) {
-            return document;
-          }
-
-          if (node.nodeType === Node.DOCUMENT_NODE) {
-            return node;
-          }
-
-          return node.ownerDocument || document;
-        }
-
-        // see https://developer.mozilla.org/en-US/docs/Web/API/NodeFilter
-        const filter = function(node) {
-        if (node.shadowRoot) {
-          return NodeFilter.FILTER_ACCEPT;
-        }
-
-        return NodeFilter.FILTER_SKIP;
-        };
-        // IE requires a function, Browsers require {acceptNode: function}
-        // see http://www.bennadel.com/blog/2607-finding-html-comment-nodes-in-the-dom-using-treewalker.htm
-        filter.acceptNode = filter;
-
-        function queryShadowHosts({ context } = {}) {
-        const element = contextToElement({
-          label: 'query/shadow-hosts',
-          resolveDocument: true,
-          defaultToDocument: true,
-          context,
-        });
-
-        const _document = getDocument(context);
-        // see https://developer.mozilla.org/en-US/docs/Web/API/Document/createTreeWalker
-        const walker = _document.createTreeWalker(
-          // root element to start search in
-          element,
-          // element type filter
-          NodeFilter.SHOW_ELEMENT,
-          // custom NodeFilter filter
-          filter,
-          // deprecated, but IE requires it
-          false
-        );
-
-        let list = [];
-
-        if (element.shadowRoot) {
-          // TreeWalker does not run the filter on the context element
-          list.push(element);
-          list = list.concat(queryShadowHosts({
-            context: element.shadowRoot,
-          }));
-        }
-
-        while (walker.nextNode()) {
-          list.push(walker.currentNode);
-          list = list.concat(queryShadowHosts({
-            context: walker.currentNode.shadowRoot,
-          }));
-        }
-
-        return list;
-        }
-      //import contextToElement from '../util/context-to-element'; already imported
-
-      const shadowObserverConfig = {
-        childList: true,
-        subtree: true,
-      };
-
-      class ShadowMutationObserver {
-        constructor({context, callback, config} = {}) {
-          this.config = config;
-
-          this.disengage = this.disengage.bind(this);
-
-          this.clientObserver = new MutationObserver(callback);
-          this.hostObserver = new MutationObserver(mutations => mutations.forEach(this.handleHostMutation, this));
-
-          this.observeContext(context);
-          this.observeShadowHosts(context);
-        }
-
-        disengage() {
-          this.clientObserver && this.clientObserver.disconnect();
-          this.clientObserver = null;
-          this.hostObserver && this.hostObserver.disconnect();
-          this.hostObserver = null;
-        }
-
-        observeShadowHosts(context) {
-          const hosts = queryShadowHosts({
-            context,
+          forEach.call(mutation.removedNodes, function(node) {
+            if (typeof node === "function")
+              return;
+            checkForVideo(node, node.parentNode || mutation.target, false);
           });
+        });
+      }, {timeout: 1000});
+    }
+    var observer = new MutationObserver(mutationCallback);
+    observer.observe(document, { childList: true, subtree: true });
 
-          hosts.forEach(element => this.observeContext(element.shadowRoot));
-        }
+    mediaTags = getAudioVideoElements()
+  
+    forEach.call(mediaTags, function(video) {
+      video.vsc = new tc.videoController(video);
+    });
 
-        observeContext(context) {
-          this.clientObserver.observe(context, this.config);
-          this.hostObserver.observe(context, shadowObserverConfig);
-        }
+    var frameTags = document.getElementsByTagName('iframe');
+    forEach.call(frameTags, function(frame) {
+      // Ignore frames we don't have permission to access (different origin).
+      try { var childDocument = frame.contentDocument } catch (e) { return }
+      initializeWhenReady(childDocument);
+    });
 
-        handleHostMutation(mutation) {
-          if (mutation.type !== 'childList') {
-            return;
-          }
-
-          const addedElements = nodeArray(mutation.addedNodes).filter(element => element.nodeType === Node.ELEMENT_NODE);
-          addedElements.forEach(this.observeShadowHosts, this);
-        }
+    // start of ally.js/src/observe/shadow-mutations.js
+    // import nodeArray from '../util/node-array';
+    // input may be undefined, selector-tring, Node, NodeList, HTMLCollection, array of Nodes
+    // yes, to some extent this is a bad replica of jQuery's constructor function
+    function nodeArray(input) {
+      if (!input) {
+        return [];
       }
 
-      function shadowMutations(context, callback, config) {
-        if (typeof callback !== 'function') {
-          throw new TypeError('observe/shadow-mutations requires options.callback to be a function');
-        }
+      if (Array.isArray(input)) {
+        return input;
+      }
 
-        if (typeof config !== 'object') {
-          throw new TypeError('observe/shadow-mutations requires options.config to be an object');
-        }
+      // instanceof Node - does not work with iframes
+      if (input.nodeType !== undefined) {
+        return [input];
+      }
 
-        if (!window.MutationObserver) {
-          // not supporting IE10 via Mutation Events, because they're too expensive
-          // https://developer.mozilla.org/en-US/docs/Web/Guide/Events/Mutation_events
-          return {
-            disengage: function() {},
-          };
-        }
+      if (typeof input === 'string') {
+        input = document.querySelectorAll(input);
+      }
 
-        const element = contextToElement({
-          label: 'observe/shadow-mutations',
-          resolveDocument: true,
-          defaultToDocument: true,
+      if (input.length !== undefined) {
+        return [].slice.call(input, 0);
+      }
+
+      throw new TypeError('unexpected input ' + String(input));
+    }
+    //import queryShadowHosts from '../query/shadow-hosts';
+    //import contextToElement from '../util/context-to-element';
+    //import nodeArray from '../util/node-array'; already imported
+
+    function contextToElement({
+      context,
+      label = 'context-to-element',
+      resolveDocument,
+      defaultToDocument,
+    }) {
+      let element = nodeArray(context)[0];
+
+      if (resolveDocument && element && element.nodeType === Node.DOCUMENT_NODE) {
+        element = element.documentElement;
+      }
+
+      if (!element && defaultToDocument) {
+        return document.documentElement;
+      }
+
+      if (!element) {
+        throw new TypeError(label + ' requires valid options.context');
+      }
+
+      if (element.nodeType !== Node.ELEMENT_NODE && element.nodeType !== Node.DOCUMENT_FRAGMENT_NODE) {
+        throw new TypeError(label + ' requires options.context to be an Element');
+      }
+
+      return element;
+    }
+    //import getDocument from '../util/get-document';
+    function getDocument(node) {
+      if (!node) {
+        return document;
+      }
+
+      if (node.nodeType === Node.DOCUMENT_NODE) {
+        return node;
+      }
+      return node.ownerDocument || document;
+    }
+
+    // see https://developer.mozilla.org/en-US/docs/Web/API/NodeFilter
+    const filter = function(node) {
+      if (node.shadowRoot) {
+        return NodeFilter.FILTER_ACCEPT;
+      }
+      return NodeFilter.FILTER_SKIP;
+    };
+    // IE requires a function, Browsers require {acceptNode: function}
+    // see http://www.bennadel.com/blog/2607-finding-html-comment-nodes-in-the-dom-using-treewalker.htm
+    filter.acceptNode = filter;
+
+    function queryShadowHosts({ context } = {}) {
+      const element = contextToElement({
+        label: 'query/shadow-hosts',
+        resolveDocument: true,
+        defaultToDocument: true,
+        context,
+      });
+      const _document = getDocument(context);
+      // see https://developer.mozilla.org/en-US/docs/Web/API/Document/createTreeWalker
+      const walker = _document.createTreeWalker(
+        // root element to start search in
+        element,
+        // element type filter
+        NodeFilter.SHOW_ELEMENT,
+        // custom NodeFilter filter
+        filter,
+        // deprecated, but IE requires it
+        false
+      );
+      let list = [];
+      if (element.shadowRoot) {
+        // TreeWalker does not run the filter on the context element
+        list.push(element);
+        list = list.concat(queryShadowHosts({
+          context: element.shadowRoot,
+        }));
+      }
+      while (walker.nextNode()) {
+        list.push(walker.currentNode);
+        list = list.concat(queryShadowHosts({
+          context: walker.currentNode.shadowRoot,
+        }));
+      }
+      return list;
+    }
+    //import contextToElement from '../util/context-to-element'; already imported
+
+    const shadowObserverConfig = {
+      childList: true,
+      subtree: true,
+    };
+
+    class ShadowMutationObserver {
+      constructor({context, callback, config} = {}) {
+        this.config = config;
+
+        this.disengage = this.disengage.bind(this);
+
+        this.clientObserver = new MutationObserver(callback);
+        this.hostObserver = new MutationObserver(mutations => mutations.forEach(this.handleHostMutation, this));
+
+        this.observeContext(context);
+        this.observeShadowHosts(context);
+      }
+
+      disengage() {
+        this.clientObserver && this.clientObserver.disconnect();
+        this.clientObserver = null;
+        this.hostObserver && this.hostObserver.disconnect();
+        this.hostObserver = null;
+      }
+
+      observeShadowHosts(context) {
+        const hosts = queryShadowHosts({
           context,
         });
 
-        const service = new ShadowMutationObserver({
-          context: element,
-          callback,
-          config,
-        });
+        hosts.forEach(element => this.observeContext(element.shadowRoot));
+      }
 
+      observeContext(context) {
+        this.clientObserver.observe(context, this.config);
+        this.hostObserver.observe(context, shadowObserverConfig);
+      }
+
+      handleHostMutation(mutation) {
+        if (mutation.type !== 'childList') {
+          return;
+        }
+
+        const addedElements = nodeArray(mutation.addedNodes).filter(element => element.nodeType === Node.ELEMENT_NODE);
+        addedElements.forEach(this.observeShadowHosts, this);
+      }
+    }
+
+    function shadowMutations(context, callback, config) {
+      if (typeof callback !== 'function') {
+        throw new TypeError('observe/shadow-mutations requires options.callback to be a function');
+      }
+
+      if (typeof config !== 'object') {
+        throw new TypeError('observe/shadow-mutations requires options.config to be an object');
+      }
+
+      if (!window.MutationObserver) {
+        // not supporting IE10 via Mutation Events, because they're too expensive
+        // https://developer.mozilla.org/en-US/docs/Web/Guide/Events/Mutation_events
         return {
-          disengage: service.disengage,
+          disengage: function() {},
         };
       }
-      //end of ally.js/src/observe/shadow-mutations.js
 
-      //look for video in shadowRoot for apple tv
-      if (document.querySelector('apple-tv-plus-player')) {
+      const element = contextToElement({
+        label: 'observe/shadow-mutations',
+        resolveDocument: true,
+        defaultToDocument: true,
+        context,
+      });
 
-        shadowMutations('apple-tv-plus-player', mutationCallback, {childList: true, subtree: true})
-      }
+      const service = new ShadowMutationObserver({
+        context: element,
+        callback,
+        config,
+      });
+
+      return {
+        disengage: service.disengage,
+      };
+    }
+    //end of ally.js/src/observe/shadow-mutations.js
+    //look for video in shadowRoot for apple tv
+    if (document.querySelector('apple-tv-plus-player')) {
+      shadowMutations('apple-tv-plus-player', mutationCallback, {childList: true, subtree: true})
+    }
 
   }
 
