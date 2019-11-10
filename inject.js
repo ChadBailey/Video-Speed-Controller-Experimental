@@ -322,6 +322,67 @@
       return true;
     }
   }
+
+  function getShadowRoots(shadowRootElement) {
+    shadowRootElements=[];
+    contexts = [];
+    if (typeof(shadowRootElement) === "undefined") {
+      contexts.push(document);
+    } else if (
+      shadowRootElement.shadowRoot && shadowRootElement.shadowRoot.children
+    ) {
+      for (let i = 0; i < shadowRootElement.shadowRoot.children.length; i++) {
+        contexts.push(shadowRootElement.shadowRoot.children[i]);
+      }
+    }
+    for (let context of contexts) {
+      if (context.shadowRoot) {
+        shadowRootElements.push(context);
+        // Recursive check for sub-shadowRoots
+        if (context.shadowRoot.children) {
+          shadowRootElements = shadowRootElements.concat(
+            getShadowRoots(context.shadowRoot,shadowRootElements)
+          );
+        }
+      }
+      for (let el of context.getElementsByTagName('*')) {
+        if (el.shadowRoot) {
+          shadowRootElements.push(el);
+          // Recursive check for sub-shadowRoots
+          if (el.shadowRoot.children) {
+            shadowRootElements = shadowRootElements.concat(getShadowRoots(el));
+          }
+        }
+      }
+    }
+    return shadowRootElements;
+  }
+
+  function getAudioVideoElements() {
+    var mediaTags = [];
+    var shadowRoots = getShadowRoots();
+    var bodyAVElements = document.querySelectorAll(
+      tc.settings.audioBoolean ? 'video,audio' : 'video'
+    );
+    //TODO: Properly concat both nodeLists or refactor calling routine to
+    // allow the use of an array. i.e. Array.from(querySelectorAll('video'))
+    // alternately, could just pass an array of nodelists then iterate over
+    // them in the calling routine
+
+    if (bodyAVElements.length > 0) {
+      mediaTags = bodyAVElements;
+    }
+    for (let shadowRootAVElement of shadowRoots) {
+      shadowRootAVElements = shadowRootAVElement.shadowRoot.querySelectorAll(
+        tc.settings.audioBoolean ? 'video,audio' : 'video'
+      );
+      if (shadowRootAVElements.length > 0) {
+        mediaTags = shadowRootAVElements;
+      }
+    }
+    return mediaTags;
+  }
+
   function initializeNow(document) {
       if (!tc.settings.enabled) return;
       // enforce init-once due to redundant callers
@@ -429,12 +490,8 @@
       var observer = new MutationObserver(mutationCallback);
       observer.observe(document, { childList: true, subtree: true });
 
-      if (tc.settings.audioBoolean) {
-        var mediaTags = document.querySelectorAll('video,audio');
-      } else {
-        var mediaTags = document.querySelectorAll('video');
-      }
-
+      mediaTags = getAudioVideoElements()
+	  
       forEach.call(mediaTags, function(video) {
         video.vsc = new tc.videoController(video);
       });
@@ -663,12 +720,7 @@
   }
 
   function runAction(action, document, value, e) {
-    if (tc.settings.audioBoolean) {
-      var mediaTags = document.querySelectorAll('video,audio');
-    } else {
-      var mediaTags = document.querySelectorAll('video');
-    }
-
+    var mediaTags = getAudioVideoElements()
     mediaTags.forEach = Array.prototype.forEach;
 
     // Get the controller that was used if called from a button press event e
