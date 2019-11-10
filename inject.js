@@ -432,9 +432,9 @@
           }
 
           // Ignore keydown event if typing in a page without vsc
-          // if (!document.querySelector(".vsc-controller")) {
-          //   return false;
-          // }
+          if (!querySelectorAllRecursive(".vsc-controller")) {
+            return false;
+          }
 
         var item = tc.settings.keyBindings.find(item => item.key === keyCode);
         if (item) {
