@@ -359,28 +359,30 @@
   }
 
   function getAudioVideoElements() {
-    var mediaTags = [];
-    var shadowRoots = getShadowRoots();
-    var bodyAVElements = document.querySelectorAll(
+    return querySelectorAllRecursive(
       tc.settings.audioBoolean ? 'video,audio' : 'video'
     );
+  }
+
+  function querySelectorAllRecursive(query) {
+    var tags = [];
+    var shadowRoots = getShadowRoots();
+    var bodyElements = document.querySelectorAll(query);
     //TODO: Properly concat both nodeLists or refactor calling routine to
     // allow the use of an array. i.e. Array.from(querySelectorAll('video'))
     // alternately, could just pass an array of nodelists then iterate over
     // them in the calling routine
 
-    if (bodyAVElements.length > 0) {
-      mediaTags = bodyAVElements;
+    if (bodyElements.length > 0) {
+      tags = bodyElements;
     }
-    for (let shadowRootAVElement of shadowRoots) {
-      shadowRootAVElements = shadowRootAVElement.shadowRoot.querySelectorAll(
-        tc.settings.audioBoolean ? 'video,audio' : 'video'
-      );
-      if (shadowRootAVElements.length > 0) {
-        mediaTags = shadowRootAVElements;
+    for (let shadowRootElement of shadowRoots) {
+      shadowRootElements = shadowRootElement.shadowRoot.querySelectorAll(query);
+      if (shadowRootElements.length > 0) {
+        tags = shadowRootElements;
       }
     }
-    return mediaTags;
+    return tags;
   }
 
   function initializeNow(document) {
@@ -430,9 +432,9 @@
           }
 
           // Ignore keydown event if typing in a page without vsc
-          if (!document.querySelector(".vsc-controller")) {
-            return false;
-          }
+          // if (!document.querySelector(".vsc-controller")) {
+          //   return false;
+          // }
 
         var item = tc.settings.keyBindings.find(item => item.key === keyCode);
         if (item) {
@@ -714,10 +716,14 @@
 
       //look for video in shadowRoot for apple tv
       if (document.querySelector('apple-tv-plus-player')) {
+
         shadowMutations('apple-tv-plus-player', mutationCallback, {childList: true, subtree: true})
       }
 
   }
+
+  
+
 
   function runAction(action, document, value, e) {
     var mediaTags = getAudioVideoElements()
