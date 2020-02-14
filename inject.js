@@ -92,7 +92,8 @@ chrome.storage.sync.get(tc.settings, function(storage) {
   tc.settings.controllerOpacity = Number(storage.controllerOpacity);
   tc.settings.blacklist = String(storage.blacklist);
 
-  // ensure that there is a "display" binding (for upgrades from versions that had it as a separate binding)
+  // ensure that there is a "display" binding (for upgrades from versions that
+  // had it as a separate binding)
   if (tc.settings.keyBindings.filter(x => x.action == "display").length == 0) {
     tc.settings.keyBindings.push({
       action: "display",
@@ -133,8 +134,10 @@ function defineVideoController() {
       .toString(36)
       .substr(2, 9);
 
-    // settings.speeds[] ensures that same source used across video tags (e.g. fullscreen on YT) retains speed setting
-    // this.speed is a controller level variable that retains speed setting across source switches (e.g. video quality, playlist change)
+    // settings.speeds[] ensures that same source used across video tags (e.g.
+    // fullscreen on YT) retains speed setting this.speed is a controller level
+    // variable that retains speed setting across source switches (e.g. video
+    // quality, playlist change)
     this.speed = 1.0;
 
     if (!tc.settings.rememberSpeed) {
@@ -306,13 +309,13 @@ function defineVideoController() {
   };
 }
 
-function initializeWhenReady(document) {
-  escapeStringRegExp.matchOperatorsRe = /[|\\{}()[\]^$+*?.]/g;
-  function escapeStringRegExp(str) {
-    return str.replace(escapeStringRegExp.matchOperatorsRe, "\\$&");
-  }
+function escapeStringRegExp(str) {
+  matchOperatorsRe = /[|\\{}()[\]^$+*?.]/g;
+  return str.replace(matchOperatorsRe, "\\$&");
+}
 
-  var blacklisted = false;
+function isBlacklisted() {
+  blacklisted = false;
   tc.settings.blacklist.split("\n").forEach(match => {
     match = match.replace(regStrip, "");
     if (match.length == 0) {
@@ -334,8 +337,11 @@ function initializeWhenReady(document) {
       return;
     }
   });
+  return blacklisted;
+}
 
-  if (blacklisted) return;
+function initializeWhenReady(document) {
+  if (isBlacklisted()) return;
 
   window.onload = () => {
     initializeNow(window.document);
@@ -603,7 +609,8 @@ function runAction(action, document, value, e) {
         controller.classList.add("vsc-manual");
         controller.classList.toggle("vsc-hidden");
       } else if (action === "blink") {
-        // if vsc is hidden, show it briefly to give the use visual feedback that the action is excuted.
+        // if vsc is hidden, show it briefly to give the use visual feedback
+        // that the action is excuted.
         if (
           controller.classList.contains("vsc-hidden") ||
           controller.blinkTimeOut !== undefined
