@@ -18,6 +18,10 @@ var tc = {
       vine.co
       imgur.com
       teams.microsoft.com
+      `.replace(regStrip, ""),
+    bouncefix: `\
+      twitch.tv
+      pluralsight.com
       `.replace(regStrip, "")
   }
 };
@@ -80,7 +84,8 @@ chrome.storage.sync.get(tc.settings, function(storage) {
       startHidden: tc.settings.startHidden,
       enabled: tc.settings.enabled,
       controllerOpacity: tc.settings.controllerOpacity,
-      blacklist: tc.settings.blacklist.replace(regStrip, "")
+      blacklist: tc.settings.blacklist.replace(regStrip, ""),
+      bouncefix: tc.settings.bouncefix.replace(regStrip, "")
     });
   }
   tc.settings.lastSpeed = Number(storage.lastSpeed);
@@ -91,6 +96,7 @@ chrome.storage.sync.get(tc.settings, function(storage) {
   tc.settings.startHidden = Boolean(storage.startHidden);
   tc.settings.controllerOpacity = Number(storage.controllerOpacity);
   tc.settings.blacklist = String(storage.blacklist);
+  tc.settings.bouncefix = String(storage.bouncefix);
 
   // ensure that there is a "display" binding (for upgrades from versions that
   // had it as a separate binding)
@@ -309,11 +315,13 @@ function defineVideoController() {
   };
 }
 
+// Escapes regex chars to allow for plain text input
 function escapeStringRegExp(str) {
   matchOperatorsRe = /[|\\{}()[\]^$+*?.]/g;
   return str.replace(matchOperatorsRe, "\\$&");
 }
 
+// Checks if current url is blacklisted
 function isBlacklisted() {
   blacklisted = false;
   tc.settings.blacklist.split("\n").forEach(match => {
@@ -340,8 +348,43 @@ function isBlacklisted() {
   return blacklisted;
 }
 
+// Checks if the current url is part of bouncefix
+function isBounceFix() {
+  bounceFix = false;
+  tc.settings.bouncefix.split("\n").forEach(match => {
+    match = match.replace(regStrip, "");
+    if (match.length == 0) {
+      return;
+    }
+    if (match.startsWith("/")) {
+      try {
+        var regexp = new RegExp(match);
+      } catch (err) {
+        return;
+      }
+    } else {
+      var regexp = new RegExp(escapeStringRegExp(match));
+    }
+    if (regexp.test(location.href)) {
+      bounceFix = true;
+      return;
+    }
+  });
+  return bounceFix;
+}
+
 function initializeWhenReady(document) {
-  if (isBlacklisted()) return;
+  if (isBlacklisted()) return; // If url is blacklisted, do not initialize
+  // If url has bounce fix enabled stop ratechange event from being triggered
+  if (isBounceFix()) {
+    document.body.addEventListener(
+      "ratechange",
+      function(event) {
+        event.stopImmediatePropagation();
+      },
+      true
+    );
+  }
 
   window.onload = () => {
     initializeNow(window.document);
@@ -556,6 +599,14 @@ function initializeNow(document) {
   });
 }
 
+// Set the speed of a given controller/video combo
+function setSpeed(controller, video, speed) {
+  var speedvalue = speed.toFixed(2);
+  video.playbackRate = Number(speedvalue);
+  // var speedIndicator = controller.shadowRoot.querySelector("span");
+  // speedIndicator.textContent = speedvalue;
+}
+
 function runAction(action, document, value, e) {
   if (tc.settings.audioBoolean) {
     var mediaTags = getShadow(document.body).filter(x => {
@@ -597,14 +648,14 @@ function runAction(action, document, value, e) {
           (v.playbackRate < 0.1 ? 0.0 : v.playbackRate) + value,
           16
         );
-        v.playbackRate = Number(s.toFixed(2));
+        setSpeed(controller, v, s);
       } else if (action === "slower") {
         // Video min rate is 0.0625:
         // https://cs.chromium.org/chromium/src/third_party/blink/renderer/core/html/media/html_media_element.cc?gsn=kMinRate&l=165
         var s = Math.max(v.playbackRate - value, 0.07);
-        v.playbackRate = Number(s.toFixed(2));
+        setSpeed(controller, v, s);
       } else if (action === "reset") {
-        resetSpeed(v, 1.0);
+        resetSpeed(v, controller, 1.0);
       } else if (action === "display") {
         controller.classList.add("vsc-manual");
         controller.classList.toggle("vsc-hidden");
@@ -628,7 +679,7 @@ function runAction(action, document, value, e) {
       } else if (action === "drag") {
         handleDrag(v, controller, e);
       } else if (action === "fast") {
-        resetSpeed(v, value);
+        resetSpeed(v, controller, value);
       } else if (action === "pause") {
         pause(v);
       } else if (action === "muted") {
@@ -650,21 +701,21 @@ function pause(v) {
   }
 }
 
-function resetSpeed(v, target) {
+function resetSpeed(v, controller, target) {
   if (v.playbackRate === target) {
     if (v.playbackRate === getKeyBindings("reset")) {
       // resetSpeed
       if (target !== 1.0) {
-        v.playbackRate = 1.0;
+        setSpeed(controller, v, 1.0);
       } else {
-        v.playbackRate = getKeyBindings("fast"); // fastSpeed
+        setSpeed(controller, v, getKeyBindings("fast")); // fastSpeed
       }
     } else {
-      v.playbackRate = getKeyBindings("reset"); // resetSpeed
+      setSpeed(controller, v, getKeyBindings("reset")); // resetSpeed
     }
   } else {
     setKeyBindings("reset", v.playbackRate); // resetSpeed
-    v.playbackRate = target;
+    setSpeed(controller, v, target);
   }
 }
 

@@ -23,6 +23,10 @@ var tcDefaults = {
     vine.co
     imgur.com
     teams.microsoft.com
+  `.replace(regStrip, ""),
+  bouncefix: `\
+    twitch.tv
+    pluralsight.com
   `.replace(regStrip, "")
 };
 
@@ -143,9 +147,9 @@ function add_shortcut() {
     <option value="mark">Set marker</option>
     <option value="jump">Jump to marker</option>
     <option value="display">Show/hide controller</option>
-    </select> 
-    <input class="customKey" type="text" placeholder="press a key"/> 
-    <input class="customValue" type="text" placeholder="value (0.10)"/> 
+    </select>
+    <input class="customKey" type="text" placeholder="press a key"/>
+    <input class="customValue" type="text" placeholder="value (0.10)"/>
     <select class="customForce">
     <option value="false">Do not disable website key bindings</option>
     <option value="true">Disable websites key bindings</option>
@@ -197,6 +201,22 @@ function validate() {
         }
       }
     });
+  document
+    .getElementById("bouncefix")
+    .value.split("\n")
+    .forEach(match => {
+      match = match.replace(regStrip, "");
+      if (match.startsWith("/")) {
+        try {
+          var regexp = new RegExp(match);
+        } catch (err) {
+          status.textContent =
+            "Error: Invalid bounce fix regex: " + match + ". Unable to save";
+          valid = false;
+          return;
+        }
+      }
+    });
   return valid;
 }
 
@@ -216,6 +236,7 @@ function save_options() {
   var startHidden = document.getElementById("startHidden").checked;
   var controllerOpacity = document.getElementById("controllerOpacity").value;
   var blacklist = document.getElementById("blacklist").value;
+  var bouncefix = document.getElementById("bouncefix").value;
 
   chrome.storage.sync.remove([
     "resetSpeed",
@@ -238,7 +259,8 @@ function save_options() {
       startHidden: startHidden,
       controllerOpacity: controllerOpacity,
       keyBindings: keyBindings,
-      blacklist: blacklist.replace(regStrip, "")
+      blacklist: blacklist.replace(regStrip, ""),
+      bouncefix: bouncefix.replace(regStrip, "")
     },
     function() {
       // Update status to let user know options were saved.
@@ -261,8 +283,10 @@ function restore_options() {
     document.getElementById("controllerOpacity").value =
       storage.controllerOpacity;
     document.getElementById("blacklist").value = storage.blacklist;
+    document.getElementById("bouncefix").value = storage.bouncefix;
 
-    // ensure that there is a "display" binding for upgrades from versions that had it as a separate binding
+    // ensure that there is a "display" binding for upgrades from versions that
+    // had it as a separate binding
     if (storage.keyBindings.filter(x => x.action == "display").length == 0) {
       storage.keyBindings.push({
         action: "display",
@@ -276,7 +300,8 @@ function restore_options() {
       var item = storage.keyBindings[i];
       if (item.predefined) {
         //do predefined ones because their value needed for overlay
-        // document.querySelector("#" + item["action"] + " .customDo").value = item["action"];
+        // document.querySelector("#" + item["action"] + " .customDo").value =
+        // item["action"];
         if (item["action"] == "display" && typeof item["key"] === "undefined") {
           item["key"] = storage.displayKeyCode || tcDefaults.displayKeyCode; // V
         }
@@ -331,7 +356,7 @@ function restore_defaults() {
 
 function show_experimental() {
   document
-    .querySelectorAll(".customForce")
+    .querySelectorAll(".experimental")
     .forEach(item => (item.style.display = "inline-block"));
 }
 

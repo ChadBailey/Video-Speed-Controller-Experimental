@@ -101,6 +101,10 @@ select {
   width: 170px;
 }
 
+.experimental {
+  display: none;
+}
+
 .customForce {
   display: none;
   width: 250px;
