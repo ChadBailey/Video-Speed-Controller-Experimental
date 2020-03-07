@@ -1,0 +1,43 @@
+Feature: Bounce Back Protection
+
+    As a user of the vsc extension, I want to be able to
+    adjust the video playback speed on websites without it being changed back
+    immediately so that I can set the speed I prefer
+
+    Scenario: Website sets playback speed on ratechange event
+      Given a website twitch.tv that sets the playback speed onratechange
+       When the speed is changed using vsc to 2.0
+       Then the speed is changed to 2.0
+        And the onratechange event is blocked
+        And the new speed is never requested
+        And the playback speed remains 2.0
+        And the controller displays 2.0
+
+    Scenario: Website explicitly sets playback speed
+      Given a website twitch.tv that sets the playback speed onratechange
+        And the current playback speed is 2.0
+        And the user has not used vsc to adjust the speed within the last 1000ms
+       When twitch.tv changes the speed to 1.3
+       Then the speed is changed to 1.3
+        And the onratechange event is triggered
+        And the event is not blocked
+        And the controller displays 1.3
+
+    Scenario: Website does not set playback speed on ratechange event
+      Given a website youtube.com that does not set the playback speed onratechange
+       When the speed is changed to 2.0 using vsc
+       Then the speed is changed to 2.0
+        And the onratechange event is triggered
+        And the event is blocked
+        And the controller displays 2.0
+
+    # Edge Case
+    Scenario: Website explicitly sets playback speed within 1000ms of using vsc
+      Given a website twitch.tv that sets the playback speed onratechange
+        And the user has used vsc to set the speed to 2.0
+        And that happened within the last 1000ms
+       When twitch.tv changes the speed to 1.3
+       Then the speed is changed 1.3
+        And the ratechange event is triggered
+        And the event is blocked
+        And the controller continues displaying 2.0
